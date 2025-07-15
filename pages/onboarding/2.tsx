@@ -14,34 +14,38 @@ export default function OnboardingStep2() {
 
   useEffect(() => {
     const init = async () => {
-      // get auth user
-      const { data: authData, error: authErr } = await supabase.auth.getUser();
-      if (authErr || !authData.user) {
-        router.push('/login');
-        return;
-      }
-      // get user profile including onboarding_progress
-      const { data: profile, error: profileErr } =
-        await supabase
+      setLoading(true);
+      try {
+        // retrieve authenticated user
+        const { data: authData, error: authErr } = await supabase.auth.getUser();
+        if (authErr || !authData.user) {
+          router.push('/login');
+          return;
+        }
+        // fetch profile with onboarding_progress
+        const { data: profile, error: profileErr } = await supabase
           .from('users')
           .select('about_me, birthdate, onboarding_progress')
           .eq('id', authData.user.id)
           .single();
-
-      if (profileErr) {
-        console.error(profileErr);
-        return;
+        if (profileErr) {
+          console.error(profileErr);
+          return;
+        }
+        // redirect if step already completed
+        if (profile.onboarding_progress > 2) {
+          router.replace(`/onboarding/${profile.onboarding_progress}`);
+          return;
+        }
+        // set state from profile
+        setUser(authData.user);
+        setAboutMe(profile.about_me || '');
+        setBirthdate(profile.birthdate ? new Date(profile.birthdate) : null);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
       }
-      // if past this step, resume
-      if (profile.onboarding_progress > 2) {
-        router.replace(`/onboarding/${profile.onboarding_progress}`);
-        return;
-      }
-
-      setUser(authData.user);
-      setAboutMe(profile.about_me || '');
-      setBirthdate(profile.birthdate ? new Date(profile.birthdate) : null);
-      setLoading(false);
     };
     init();
   }, [router]);
@@ -49,19 +53,13 @@ export default function OnboardingStep2() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage('Saving...');
-
-    const birthdateString = birthdate
-      ? birthdate.toISOString().split('T')[0]
-      : null;
-
-    // upsert profile with onboarding_progress = 2
+    const birthdateString = birthdate ? birthdate.toISOString().split('T')[0] : null;
     const { error } = await supabase.from('users').upsert({
       id: user.id,
       about_me: aboutMe,
       birthdate: birthdateString,
       onboarding_progress: 2,
     });
-
     if (error) {
       setMessage('Error: ' + error.message);
     } else {

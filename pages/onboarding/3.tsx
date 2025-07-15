@@ -11,33 +11,42 @@ export default function OnboardingStep3() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: authData, error: authErr } = await supabase.auth.getUser();
-      if (authErr || !authData.user) {
-        router.push('/login'); return;
-      }
-      const { data: profile, error: profileErr } =
-        await supabase
+      setLoading(true);
+      try {
+        const { data: authData, error: authErr } = await supabase.auth.getUser();
+        if (authErr || !authData.user) {
+          router.push('/login');
+          return;
+        }
+        const { data: profile, error: profileErr } = await supabase
           .from('users')
           .select('street, city, state, zip, onboarding_progress')
           .eq('id', authData.user.id)
           .single();
-      if (profileErr) { console.error(profileErr); return; }
-      if (profile.onboarding_progress < 2) {
-        router.replace('/onboarding/2');
-        return;
+        if (profileErr) {
+          console.error(profileErr);
+          return;
+        }
+        if (profile.onboarding_progress < 2) {
+          router.replace('/onboarding/2');
+          return;
+        }
+        if (profile.onboarding_progress > 3) {
+          router.replace('/data');
+          return;
+        }
+        setUser(authData.user);
+        setAddress({
+          street: profile.street || '',
+          city: profile.city || '',
+          state: profile.state || '',
+          zip: profile.zip || '',
+        });
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
       }
-      if (profile.onboarding_progress > 3) {
-        router.replace('/data');
-        return;
-      }
-      setUser(authData.user);
-      setAddress({
-        street: profile.street || '',
-        city: profile.city || '',
-        state: profile.state || '',
-        zip: profile.zip || '',
-      });
-      setLoading(false);
     };
     init();
   }, [router]);
