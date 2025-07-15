@@ -6,7 +6,6 @@ import 'react-datepicker/dist/react-datepicker.css';
 
 export default function OnboardingStep2() {
   const router = useRouter();
-
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [aboutMe, setAboutMe] = useState('');
@@ -14,38 +13,60 @@ export default function OnboardingStep2() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data, error } = await supabase.auth.getUser();
-      if (error || !data?.user) {
+    const init = async () => {
+      // get auth user
+      const { data: authData, error: authErr } = await supabase.auth.getUser();
+      if (authErr || !authData.user) {
         router.push('/login');
-      } else {
-        setUser(data.user);
-        setLoading(false);
+        return;
       }
+      // get user profile including onboarding_progress
+      const { data: profile, error: profileErr } =
+        await supabase
+          .from('users')
+          .select('about_me, birthdate, onboarding_progress')
+          .eq('id', authData.user.id)
+          .single();
+
+      if (profileErr) {
+        console.error(profileErr);
+        return;
+      }
+      // if past this step, resume
+      if (profile.onboarding_progress > 2) {
+        router.replace(`/onboarding/${profile.onboarding_progress}`);
+        return;
+      }
+
+      setUser(authData.user);
+      setAboutMe(profile.about_me || '');
+      setBirthdate(profile.birthdate ? new Date(profile.birthdate) : null);
+      setLoading(false);
     };
-    getUser();
-  }, []);
+    init();
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage('Saving...');
 
-    const birthdateString = birthdate ? birthdate.toISOString().split('T')[0] : null;
+    const birthdateString = birthdate
+      ? birthdate.toISOString().split('T')[0]
+      : null;
 
+    // upsert profile with onboarding_progress = 2
     const { error } = await supabase.from('users').upsert({
       id: user.id,
-      email: user.email,
       about_me: aboutMe,
       birthdate: birthdateString,
+      onboarding_progress: 2,
     });
 
     if (error) {
       setMessage('Error: ' + error.message);
     } else {
       setMessage('Saved! Redirecting...');
-      setTimeout(() => {
-        router.push('/onboarding/3');
-      }, 1500);
+      setTimeout(() => router.push('/onboarding/3'), 1500);
     }
   };
 
@@ -54,25 +75,23 @@ export default function OnboardingStep2() {
   return (
     <div style={styles.pageContainer}>
       <h1 style={styles.heading}>Onboarding Step 2</h1>
-
       <form onSubmit={handleSubmit} style={styles.form}>
         <div style={styles.fieldGroup}>
           <label style={styles.label}>About Me</label>
           <textarea
             rows={6}
             value={aboutMe}
-            onChange={(e) => setAboutMe(e.target.value)}
+            onChange={e => setAboutMe(e.target.value)}
             style={styles.highlightedTextarea}
             placeholder="Tell us about yourself..."
           />
         </div>
-
         <div style={styles.fieldGroup}>
           <label style={styles.label}>Birthdate</label>
-          <div style={styles.datePickerWrapper} className="date-picker-wrapper">
+          <div style={styles.datePickerWrapper}>
             <DatePicker
               selected={birthdate}
-              onChange={(date) => setBirthdate(date)}
+              onChange={date => setBirthdate(date)}
               dateFormat="yyyy-MM-dd"
               placeholderText="Select your birthdate"
               maxDate={new Date()}
@@ -82,12 +101,8 @@ export default function OnboardingStep2() {
             />
           </div>
         </div>
-
-        <button type="submit" style={styles.button}>
-          Continue
-        </button>
+        <button type="submit" style={styles.button}>Continue</button>
       </form>
-
       {message && <p style={styles.message}>{message}</p>}
     </div>
   );
@@ -103,7 +118,6 @@ const styles = {
     boxShadow: '0 6px 15px rgba(0,0,0,0.1)',
     fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
   } as React.CSSProperties,
-
   heading: {
     textAlign: 'center',
     color: '#2c3e50',
@@ -111,16 +125,8 @@ const styles = {
     fontWeight: 700,
     fontSize: '2rem',
   } as React.CSSProperties,
-
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-  } as React.CSSProperties,
-
-  fieldGroup: {
-    marginBottom: '2rem',
-  } as React.CSSProperties,
-
+  form: { display: 'flex', flexDirection: 'column' } as React.CSSProperties,
+  fieldGroup: { marginBottom: '2rem' } as React.CSSProperties,
   label: {
     display: 'block',
     marginBottom: '0.6rem',
@@ -128,7 +134,6 @@ const styles = {
     color: '#34495e',
     fontSize: '1.1rem',
   } as React.CSSProperties,
-
   highlightedTextarea: {
     width: '100%',
     padding: '14px',
@@ -142,15 +147,13 @@ const styles = {
     color: '#222',
     outline: 'none',
   } as React.CSSProperties,
-
   datePickerWrapper: {
     borderRadius: 10,
     border: '3px solid #3498db',
     boxShadow: '0 0 8px rgba(52, 152, 219, 0.25)',
-    backgroundColor: '#fff',
     padding: 4,
+    display: 'inline-block',
   } as React.CSSProperties,
-
   button: {
     backgroundColor: '#2980b9',
     color: 'white',
@@ -163,11 +166,10 @@ const styles = {
     boxShadow: '0 5px 15px rgba(41, 128, 185, 0.6)',
     transition: 'background-color 0.3s ease',
   } as React.CSSProperties,
-
   message: {
     marginTop: '1rem',
     textAlign: 'center',
-    color: '#27ae60',
     fontWeight: 600,
+    color: '#27ae60',
   } as React.CSSProperties,
 };
