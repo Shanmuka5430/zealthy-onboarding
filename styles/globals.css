@@ -1,0 +1,72 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+
+  --font-sans: 'Arial', Helvetica, sans-serif;
+  --font-mono: 'Courier New', monospace;
+}
+
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+a {
+  color: #3b82f6; /* Tailwind blue-500 */
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* For react-datepicker input styling */
+.date-picker-wrapper input {
+  color: var(--foreground);
+  font-size: 1rem;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  outline: none;
+  font-family: var(--font-sans);
+}
+
+
+textarea {
+  font-family: var(--font-sans);
+  color: var(--foreground);
+}
+
+
