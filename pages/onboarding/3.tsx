@@ -1,123 +1,89 @@
-import React, { useEffect, useState } from 'react';
+// pages/onboarding/Step3.tsx
+
 import { useRouter } from 'next/router';
+import { useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 
-export default function OnboardingStep3() {
+export default function Step3() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [address, setAddress] = useState({ street: '', city: '', state: '', zip: '' });
-  const [message, setMessage] = useState('');
-
-  useEffect(() => {
-    const init = async () => {
-      setLoading(true);
-      try {
-        const { data: authData, error: authErr } = await supabase.auth.getUser();
-        if (authErr || !authData.user) {
-          router.push('/login');
-          return;
-        }
-        const { data: profile, error: profileErr } = await supabase
-          .from('users')
-          .select('street, city, state, zip, onboarding_progress')
-          .eq('id', authData.user.id)
-          .single();
-        if (profileErr) {
-          console.error(profileErr);
-          return;
-        }
-        if (profile.onboarding_progress < 2) {
-          router.replace('/onboarding/2');
-          return;
-        }
-        if (profile.onboarding_progress > 3) {
-          router.replace('/data');
-          return;
-        }
-        setUser(authData.user);
-        setAddress({
-          street: profile.street || '',
-          city: profile.city || '',
-          state: profile.state || '',
-          zip: profile.zip || '',
-        });
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    init();
-  }, [router]);
+  const [formData, setFormData] = useState({
+    address: '',
+    city: '',
+    state: '',
+    zip: '',
+  });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setAddress({ ...address, [e.target.name]: e.target.value });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setMessage('Saving...');
-    const { error } = await supabase.from('users').upsert({
-      id: user.id,
-      street: address.street,
-      city: address.city,
-      state: address.state,
-      zip: address.zip,
-      onboarding_progress: 3,
-    });
+
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+
+    if (!userId) {
+      alert('User not found');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('users')
+      .update({
+        ...formData,
+        onboarding_progress: 3,
+      })
+      .eq('id', userId);
+
     if (error) {
-      setMessage('Error: ' + error.message);
+      console.error(error);
+      alert('Failed to update data');
     } else {
-      setMessage('Saved! Redirecting...');
-      setTimeout(() => router.push('/data'), 1500);
+      router.push('/data'); // 🔁 this will now show the correct DataPage
     }
   };
 
-  if (loading) return <p>Loading...</p>;
-
   return (
-    <div style={styles.container}>
-      <h1 style={styles.heading}>Onboarding Step 3</h1>
-      <form onSubmit={handleSubmit} style={styles.form}>
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Street Address</label>
-          <input name="street" value={address.street} onChange={handleChange} style={styles.input} required />
-        </div>
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>City</label>
-          <input name="city" value={address.city} onChange={handleChange} style={styles.input} required />
-        </div>
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>State</label>
-          <input name="state" value={address.state} onChange={handleChange} style={styles.input} required />
-        </div>
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>ZIP Code</label>
-          <input name="zip" value={address.zip} onChange={handleChange} style={styles.input} required />
-        </div>
-        <button type="submit" style={styles.button}>Finish</button>
+    <div style={{ padding: '2rem' }}>
+      <h2>Step 3: Address Details</h2>
+      <form onSubmit={handleSubmit}>
+        <input
+          name="address"
+          placeholder="Street Address"
+          value={formData.address}
+          onChange={handleChange}
+          required
+          style={{ display: 'block', marginBottom: '1rem', width: '100%' }}
+        />
+        <input
+          name="city"
+          placeholder="City"
+          value={formData.city}
+          onChange={handleChange}
+          required
+          style={{ display: 'block', marginBottom: '1rem', width: '100%' }}
+        />
+        <input
+          name="state"
+          placeholder="State"
+          value={formData.state}
+          onChange={handleChange}
+          required
+          style={{ display: 'block', marginBottom: '1rem', width: '100%' }}
+        />
+        <input
+          name="zip"
+          placeholder="ZIP Code"
+          value={formData.zip}
+          onChange={handleChange}
+          required
+          style={{ display: 'block', marginBottom: '1rem', width: '100%' }}
+        />
+        <button type="submit" style={{ width: '100%', padding: '1rem' }}>
+          Submit
+        </button>
       </form>
-      {message && <p style={styles.message}>{message}</p>}
     </div>
   );
 }
-
-const styles = {
-  container: {
-    maxWidth: 600,
-    margin: '4rem auto',
-    padding: '2rem',
-    borderRadius: 12,
-    backgroundColor: '#f0f8ff',
-    boxShadow: '0 6px 15px rgba(0,0,0,0.1)',
-    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-  } as React.CSSProperties,
-  heading: { textAlign: 'center', color: '#2c3e50', marginBottom: '2rem', fontSize: '2rem', fontWeight: 'bold', } as React.CSSProperties,
-  form: { display: 'flex', flexDirection: 'column', gap: '1.2rem' } as React.CSSProperties,
-  inputGroup: { display: 'flex', flexDirection: 'column' } as React.CSSProperties,
-  label: { fontWeight: 600, color: '#34495e', marginBottom: '0.5rem', fontSize: '1.1rem', } as React.CSSProperties,
-  input: { padding: '14px', border: '3px solid #3498db', borderRadius: 10, fontSize: '1rem', boxShadow: '0 0 10px rgba(52, 152, 219, 0.3)', outline: 'none', backgroundColor: '#fff', color: '#222', } as React.CSSProperties,
-  button: { backgroundColor: '#27ae60', color: '#fff', padding: '16px', fontSize: '1.2rem', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 700, boxShadow: '0 5px 15px rgba(39, 174, 96, 0.6)', transition: 'background-color 0.3s ease', } as React.CSSProperties,
-  message: { marginTop: '1rem', textAlign: 'center', fontWeight: 600, color: '#2ecc71', } as React.CSSProperties,
-};
